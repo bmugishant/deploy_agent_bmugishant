@@ -52,7 +52,13 @@ build_roster() {
     fi
     echo "Roster created with $count student(s)."
 }
+set_permissions() {
+    chmod +x "$PROJECT_DIR/attendance_checker.py" || { echo "ERROR: chmod failed on attendance_checker.py" >&2; return 1; }
+    chmod 600 "$PROJECT_DIR/Helpers/config.json" || { echo "ERROR: chmod failed on config.json" >&2; return 1; }
 
+    echo "Permissions set:"
+    ls -l "$PROJECT_DIR/attendance_checker.py" "$PROJECT_DIR/Helpers/config.json"
+}
 deploy() {
        # 1. Ask for a valid project name (loop until it is valid)
     while true; do
@@ -80,9 +86,11 @@ deploy() {
     # 4. Create the structure, and stop with an error if it fails
     mkdir -p "$PROJECT_DIR/Helpers" "$PROJECT_DIR/reports" || { echo "ERROR: could not create directories." >&2; return 1; }
 
-      copy_templates || return 1
-    build_roster 
+  copy_templates || return 1
+    build_roster || return 1
+    set_permissions || return 1      
  echo "Created structure:"
+
     ls -R "$PROJECT_DIR"
 }
 
