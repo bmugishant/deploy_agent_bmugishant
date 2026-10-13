@@ -11,7 +11,34 @@ preflight_checks() {
 }
 
 deploy() {
-    echo "TODO: deploy"
+       # 1. Ask for a valid project name (loop until it is valid)
+    while true; do
+        read -rp "Enter project name: " name
+        if [[ "$name" =~ ^[A-Za-z0-9_-]+$ ]]; then
+            break
+        fi
+        echo "Invalid name. Use letters, numbers, - or _ only (no spaces)."
+    done
+
+    # 2. Set the project directory (global, no 'local', so the Stage 8 trap can use it)
+    PROJECT_DIR="attendance_tracker_${name}"
+
+    # 3. Protect against overwriting an existing project
+    if [[ -d "$PROJECT_DIR" ]]; then
+        read -rp "$PROJECT_DIR already exists. Overwrite? (y/n): " answer
+        if [[ "$answer" == "y" ]]; then
+            rm -rf "$PROJECT_DIR"
+        else
+            echo "Aborted. Existing project left untouched."
+            return 1
+        fi
+    fi
+
+    # 4. Create the structure, and stop with an error if it fails
+    mkdir -p "$PROJECT_DIR/Helpers" "$PROJECT_DIR/reports" || { echo "ERROR: could not create directories." >&2; return 1; }
+
+    echo "Created structure:"
+    ls -R "$PROJECT_DIR"
 }
 
 run_app() {
