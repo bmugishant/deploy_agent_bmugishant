@@ -88,7 +88,7 @@ update_thresholds() {
             fi
         fi
 a
-        echo "Enter a whole number from 0 to 100."
+        echo "Enter whole number from 0 to 100."
     done
 
     while true; do
@@ -149,10 +149,36 @@ update_thresholds || return 1
 
  echo "Created structure:"
     ls -R "$PROJECT_DIR"
+ echo "Starting the application to verify deployment..."
+    run_app "$PROJECT_DIR" || return 1
 }
 
 run_app() {
-    echo "TODO: run"
+    local name
+    local project_dir="${1:-}"
+
+    # Menu option 2 asks which project to run.
+    if [[ -z "$project_dir" ]]; then
+        read -rp "Enter project name: " name || return 1
+
+        if [[ ! "$name" =~ ^[A-Za-z0-9_-]+$ ]]; then
+            echo "ERROR: invalid project name." >&2
+            return 1
+        fi
+
+        project_dir="attendance_tracker_${name}"
+    fi
+
+    if [[ ! -f "$project_dir/attendance_checker.py" ]]; then
+        echo "ERROR: application not found in $project_dir." >&2
+        return 1
+    fi
+
+    # A subshell keeps the main script in its original directory.
+    (
+        cd "$project_dir" || exit 1
+        python3 attendance_checker.py
+    )
 }
 
 archive_logs() {
