@@ -87,7 +87,6 @@ update_thresholds() {
                 break
             fi
         fi
-a
         echo "Enter whole number from 0 to 100."
     done
 
@@ -115,7 +114,44 @@ a
 
     echo "Thresholds updated: warning $warning%, failure $failure%."
 }
-deploy() {
+interrupt_deployment() {
+    local signal="$1"
+    local archive="${PROJECT_DIR}_archive.zip"
+    local temp_dir
+
+    # Prevent another interrupt during archiving.
+    trap '' INT TSTP
+
+    echo
+    echo "Deployment interrupted by $signal."
+
+    if [[ -d "$PROJECT_DIR" ]]; then
+        temp_dir="$(mktemp -d)" || exit 1
+
+        if zip -qr "$temp_dir/project.zip" "$PROJECT_DIR" &&
+           mv -f "$temp_dir/project.zip" "$archive"; then
+            echo "Incomplete project archived: $archive"
+
+            if rm -rf -- "$PROJECT_DIR"; then
+                echo "Incomplete project directory removed."
+            else
+                echo "ERROR: could not remove incomplete directory." >&2
+            fi
+        else
+            echo "ERROR: archiving failed; project directory retained." >&2
+        fi
+
+        rm -rf -- "$temp_dir"
+    else
+        echo "No project directory was created."
+    fi
+
+    case "$signal" in
+        SIGINT) exit 130 ;;
+        SIGTSTP) exit 148 ;;
+    esac
+}
+deploy() (
        # 1. Ask for a valid project name (loop until it is valid)
     while true; do
         read -rp "Enter project name: " name
@@ -140,7 +176,13 @@ deploy() {
     fi
 
     # 4. Create the structure, and stop with an error if it fails
-    mkdir -p "$PROJECT_DIR/Helpers" "$PROJECT_DIR/reports" || { echo "ERROR: could not create directories." >&2; return 1; }
+    trap 'interrupt_deployment SIGINT' INT
+    trap 'interrupt_deployment SIGTSTP' TSTP
+
+    mkdir -p "$PROJECT_DIR/Helpers" "$PROJECT_DIR/reports" || {
+        echo "ERROR: could not create directories." >&2;
+        return 1
+    }
 
   copy_templates || return 1
     build_roster || return 1
@@ -149,16 +191,19 @@ update_thresholds || return 1
 
  echo "Created structure:"
     ls -R "$PROJECT_DIR"
- echo "Starting the application to verify deployment..."
+ls -R "$PROJECT_DIR"
+
+    trap - INT TSTP 
+echo "Starting the application to verify deployment..."
     run_app "$PROJECT_DIR" || return 1
-}
+)
 
 run_app() {
     local name
     local project_dir="${1:-}"
 
     # Menu option 2 asks which project to run.
-    if [[ -z "$project_dir" ]]; then
+   if [[ -z "$project_dir" ]]; then
         read -rp "Enter project name: " name || return 1
 
         if [[ ! "$name" =~ ^[A-Za-z0-9_-]+$ ]]; then
@@ -214,7 +259,6 @@ archive_logs() {
             echo "No ${log}.log found; skipping."
             continue
         fi
-
         mkdir -p "$project_dir/archives/$log" || {
             echo "ERROR: could not create archive directory." >&2
             return 1
