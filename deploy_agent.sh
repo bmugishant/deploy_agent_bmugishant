@@ -182,7 +182,53 @@ run_app() {
 }
 
 archive_logs() {
-    echo "TODO: archive"
+    local name project_dir timestamp log source destination
+
+    read -rp "Enter project name: " name || return 1
+
+    if [[ ! "$name" =~ ^[A-Za-z0-9_-]+$ ]]; then
+        echo "ERROR: invalid project name." >&2
+        return 1
+    fi
+
+    project_dir="attendance_tracker_${name}"
+
+    if [[ ! -d "$project_dir" ]]; then
+        echo "ERROR: project $project_dir does not exist." >&2
+        return 1
+    fi
+
+    timestamp="$(date +%Y%m%d_%H%M%S)" || return 1
+
+    # Avoid overwriting archives created within the same second.
+    while [[ -e "$project_dir/archives/attendance/attendance_${timestamp}.log" ||
+             -e "$project_dir/archives/absent/absent_${timestamp}.log" ]]; do
+        sleep 1
+        timestamp="$(date +%Y%m%d_%H%M%S)" || return 1
+    done
+
+    for log in attendance absent; do
+        source="$project_dir/reports/${log}.log"
+
+        if [[ ! -f "$source" ]]; then
+            echo "No ${log}.log found; skipping."
+            continue
+        fi
+
+        mkdir -p "$project_dir/archives/$log" || {
+            echo "ERROR: could not create archive directory." >&2
+            return 1
+        }
+
+        destination="$project_dir/archives/$log/${log}_${timestamp}.log"
+
+        cp "$source" "$destination" || {
+            echo "ERROR: could not archive $source." >&2
+            return 1
+        }
+
+        echo "Archived: $destination"
+    done
 }
 
 # ---------- Menu ----------
