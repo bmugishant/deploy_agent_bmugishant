@@ -1,5 +1,5 @@
 #!/bin/bash
-
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 preflight_checks() {
     for tool in python3 zip; do
         if ! command -v "$tool" >/dev/null 2>&1; then
@@ -8,6 +8,49 @@ preflight_checks() {
         fi
     done
     python3 --version  
+}
+copy_templates() {
+    for f in attendance_checker.py config.json; do
+        if [[ ! -f "$SCRIPT_DIR/templates/$f" ]]; then
+            echo "ERROR: template $f not found." >&2
+            return 1
+        fi
+    done
+    cp "$SCRIPT_DIR/templates/attendance_checker.py" "$PROJECT_DIR/" || return 1
+    cp "$SCRIPT_DIR/templates/config.json" "$PROJECT_DIR/Helpers/" || return 1
+}
+build_roster() {
+    local choice count
+    while true; do
+        echo "Roster: A) copy from template  B) generate fresh roster"
+        read -rp "Choose A or B: " choice
+        [[ "$choice" =~ ^[ABab]$ ]] && break
+        echo "Please enter A or B."
+    done
+
+    while true; do
+        read -rp "How many students (1-10)? " count
+        if [[ "$count" =~ ^[0-9]+$ ]] && (( count >= 1 && count <= 10 )); then
+            break
+        fi
+        echo "Enter a number from 1 to 10."
+    done
+
+    local roster="$PROJECT_DIR/Helpers/assets.csv"
+    local config="$PROJECT_DIR/Helpers/config.json"
+
+    if [[ "$choice" =~ ^[Aa]$ ]]; then
+        head -n $((count + 1)) "$SCRIPT_DIR/templates/assets.csv" > "$roster"
+    else
+        local names=("Alice Johnson" "Bob Smith" "Charlie Davis" "Diana Prince" "Ethan Cole" "Fatima Noor" "George Mensah" "Hannah Kim" "Ibrahim Osei" "Jasmine Lee")
+        local emails=(alice@example.com bob@example.com charlie@example.com diana@example.com ethan@example.com fatima@example.com george@example.com hannah@example.com ibrahim@example.com jasmine@example.com)
+        echo "Email,Names,Attendance Count,Absence Count" > "$roster"
+        for ((i = 0; i < count; i++)); do
+            echo "${emails[i]},${names[i]},0,0" >> "$roster"
+        done
+        sed -i 's/"total_sessions": 5/"total_sessions": 1/' "$config"
+    fi
+    echo "Roster created with $count student(s)."
 }
 
 deploy() {
@@ -37,7 +80,9 @@ deploy() {
     # 4. Create the structure, and stop with an error if it fails
     mkdir -p "$PROJECT_DIR/Helpers" "$PROJECT_DIR/reports" || { echo "ERROR: could not create directories." >&2; return 1; }
 
-    echo "Created structure:"
+      copy_templates || return 1
+    build_roster 
+ echo "Created structure:"
     ls -R "$PROJECT_DIR"
 }
 
