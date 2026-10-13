@@ -7,7 +7,7 @@ preflight_checks() {
             exit 1
         fi
     done
-    python3 --version  
+    python3 --version
 }
 copy_templates() {
     for f in attendance_checker.py config.json; do
@@ -58,6 +58,62 @@ set_permissions() {
 
     echo "Permissions set:"
     ls -l "$PROJECT_DIR/attendance_checker.py" "$PROJECT_DIR/Helpers/config.json"
+
+}
+update_thresholds() {
+    local answer warning failure
+    local config="$PROJECT_DIR/Helpers/config.json"
+
+    while true; do
+        read -rp "Update alert thresholds? (y/n): " answer || return 1
+
+        case "$answer" in
+            y|Y) break ;;
+            n|N)
+                echo "Keeping default thresholds: warning 75, failure 50."
+                return 0
+                ;;
+            *) echo "Please enter y or n." ;;
+        esac
+    done
+
+    while true; do
+        read -rp "Warning threshold [75]: " warning || return 1
+        warning="${warning:-75}"
+
+        if [[ "$warning" =~ ^[0-9]{1,3}$ ]]; then
+            warning=$((10#$warning))
+            if (( warning <= 100 )); then
+                break
+            fi
+        fi
+a
+        echo "Enter a whole number from 0 to 100."
+    done
+
+    while true; do
+        read -rp "Failure threshold [50]: " failure || return 1
+        failure="${failure:-50}"
+
+        if [[ "$failure" =~ ^[0-9]{1,3}$ ]]; then
+            failure=$((10#$failure))
+            if (( failure <= warning )); then
+                break
+            fi
+        fi
+
+        echo "Enter a whole number from 0 to $warning."
+    done
+
+    sed -i -E \
+        -e "s/(\"warning\"[[:space:]]*:[[:space:]]*)[0-9]+/\1${warning}/" \
+        -e "s/(\"failure\"[[:space:]]*:[[:space:]]*)[0-9]+/\1${failure}/" \
+        "$config" || {
+            echo "ERROR: could not update thresholds." >&2
+            return 1
+        }
+
+    echo "Thresholds updated: warning $warning%, failure $failure%."
 }
 deploy() {
        # 1. Ask for a valid project name (loop until it is valid)
@@ -88,9 +144,10 @@ deploy() {
 
   copy_templates || return 1
     build_roster || return 1
-    set_permissions || return 1      
- echo "Created structure:"
+    set_permissions || return 1
+update_thresholds || return 1
 
+ echo "Created structure:"
     ls -R "$PROJECT_DIR"
 }
 
