@@ -193,7 +193,7 @@ update_thresholds || return 1
     ls -R "$PROJECT_DIR"
 ls -R "$PROJECT_DIR"
 
-    trap - INT TSTP 
+    trap - INT TSTP
 echo "Starting the application to verify deployment..."
     run_app "$PROJECT_DIR" || return 1
 )
@@ -298,4 +298,5 @@ main_menu() {
 
 # ---------- Start ----------
 preflight_checks
+trap ':' TSTP
 main_menu
