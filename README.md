@@ -222,3 +222,5 @@ git log --oneline --graph --all
 
 ## Walkthrough Video
 
+[Watch my walkthrough video] https://drive.google.com/file/d/1TcUKz-w9VlhegEfIjSG0zohr1jcuufa-/view?usp=drivesdk
+
